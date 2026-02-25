@@ -198,8 +198,9 @@ td input.ci.has-warn{box-shadow:inset 0 0 0 2px var(--warn);background:#fffbeb}
       <table>
         <thead><tr>
           <th>#</th><th style="min-width:120px">Cód. destino</th>
-          <th style="min-width:280px">Dirección</th>
-          <th style="min-width:220px">Dirección normalizada</th>
+          <th style="min-width:240px">Dirección</th>
+          <th style="min-width:155px">Coord. manual (lat, lng)</th>
+          <th style="min-width:200px">Dirección normalizada</th>
           <th style="min-width:155px">Coordenadas</th><th></th>
         </tr></thead>
         <tbody id="tb"></tbody>
@@ -210,7 +211,7 @@ td input.ci.has-warn{box-shadow:inset 0 0 0 2px var(--warn);background:#fffbeb}
       <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="dzOver(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)" style="margin-top:12px">
         <div class="dz-icon">📁</div>
         <div>Arrastra tu archivo aquí o <strong style="color:var(--accent)">haz clic para seleccionar</strong></div>
-        <div class="dz-hint">Formatos soportados: Excel (.xlsx) · CSV (.csv) · Texto (.txt) — Primera columna: Código · Segunda columna: Dirección</div>
+        <div class="dz-hint">Formatos soportados: Excel (.xlsx) · CSV (.csv) · Texto (.txt) — Col 1: Código · Col 2: Dirección · Col 3: Coordenadas (opcional, lat, lng)</div>
       </div>
     </div>
     <div class="val-panel" id="valPanel">
@@ -276,8 +277,12 @@ function pr(pct){
   if(pct>=100)setTimeout(()=>document.getElementById('pw').classList.remove('on'),700);
 }
 
-function addRow(code='',addr='',norm='',coords='',st=''){
-  rows.push({id:++rid,code,addr,norm,coords,status:coords?'ok':(st||'idle')});renderT();
+function addRow(code='',addr='',manualCoords='',norm='',coords='',st=''){
+  // If manualCoords provided, use as coords directly and mark ok
+  const finalCoords=manualCoords?manualCoords:(coords||'');
+  const finalStatus=manualCoords?'ok':(coords?'ok':(st||'idle'));
+  const finalNorm=manualCoords?'(coord. manual)':(norm||'');
+  rows.push({id:++rid,code,addr,manualCoords,norm:finalNorm,coords:finalCoords,status:finalStatus});renderT();
 }
 function delRow(i){rows.splice(i,1);renderT();chk();}
 function clearT(){
@@ -287,7 +292,33 @@ function clearT(){
   document.getElementById('cmpBody').innerHTML='<div class="ph">Geocodifica al menos 2 destinos y presiona <strong>Calcular comparación</strong> para elegir el mejor algoritmo.</div>';
   renderT();
 }
-function dirty(i){rows[i].status='idle';rows[i].coords='';rows[i].norm='';}
+function dirty(i){
+  if(rows[i].manualCoords) return; // don't clear if manual coords set
+  rows[i].status='idle';rows[i].coords='';rows[i].norm='';
+}
+function applyManual(i, val){
+  const v=val.trim();
+  rows[i].manualCoords=v;
+  if(v && isValidCoord(v)){
+    rows[i].coords=v;
+    rows[i].norm='(coord. manual)';
+    rows[i].status='ok';
+    log('✔ '+(rows[i].code||'Fila '+(i+1))+': coordenada manual aplicada.','ok');
+  } else if(!v) {
+    // cleared — fall back to geocoding from address
+    rows[i].coords='';rows[i].norm='';rows[i].status='idle';
+    if(rows[i].addr.trim()) geoRow(i);
+  } else {
+    rows[i].status='error';
+    log('⚠ Fila '+(i+1)+': formato inválido. Usa "lat, lng" ej: -33.4567, -70.6483','warn');
+  }
+  renderT();
+}
+function isValidCoord(v){
+  const p=v.split(',');if(p.length!==2)return false;
+  const[la,lo]=p.map(s=>parseFloat(s.trim()));
+  return !isNaN(la)&&!isNaN(lo)&&la>=-90&&la<=90&&lo>=-180&&lo<=180;
+}
 
 function renderT(){
   const tb=document.getElementById('tb');tb.innerHTML='';
@@ -299,7 +330,8 @@ function renderT(){
     const tr=document.createElement('tr');
     tr.innerHTML=`<td class="num">${i+1}</td>
       <td><input class="ci" value="${e(r.code)}" placeholder="COD-001" oninput="rows[${i}].code=this.value" onpaste="hp(event,${i})"></td>
-      <td><input class="ci" value="${e(r.addr)}" placeholder="Av. Providencia 1234, Santiago" oninput="rows[${i}].addr=this.value;dirty(${i})" onblur="geoRow(${i})" onpaste="hp(event,${i})"></td>
+      <td><input class="ci" value="${e(r.addr)}" placeholder="Av. Providencia 1234, Chile" oninput="rows[${i}].addr=this.value;if(!rows[${i}].manualCoords)dirty(${i})" onblur="if(!rows[${i}].manualCoords)geoRow(${i})" onpaste="hp(event,${i})"></td>
+      <td><input class="ci" value="${e(r.manualCoords||'')}" placeholder="-33.4567, -70.6483" style="font-family:var(--mono);font-size:12px" oninput="applyManual(${i},this.value)" title="Opcional: ingresa coordenadas directas. Si se llena, omite geocodificación."></td>
       <td class="nc ${nc}">${nt}</td>
       <td class="cc ${dc}"><span class="dot ${dot}"></span>${r.coords||'—'}</td>
       <td class="del"><button class="btn btn-g btn-sm" onclick="delRow(${i})">✕</button></td>`;
@@ -319,7 +351,7 @@ function hp(ev,si){
   const txt=(ev.clipboardData||window.clipboardData).getData('text');
   const lines=txt.trim().split('\n');if(lines.length<=1)return;
   ev.preventDefault();
-  lines.forEach((ln,i)=>{const p=ln.split('\t');const idx=si+i;if(idx>=rows.length)addRow(p[0]?.trim()||'',p[1]?.trim()||'');else{rows[idx].code=p[0]?.trim()||rows[idx].code;rows[idx].addr=p[1]?.trim()||rows[idx].addr;dirty(idx);}});
+  lines.forEach((ln,i)=>{const p=ln.split('\t');const idx=si+i;const mc=p[2]?.trim()||'';if(idx>=rows.length)addRow(p[0]?.trim()||'',p[1]?.trim()||'',mc);else{rows[idx].code=p[0]?.trim()||rows[idx].code;rows[idx].addr=p[1]?.trim()||rows[idx].addr;if(mc){rows[idx].manualCoords=mc;if(isValidCoord(mc)){rows[idx].coords=mc;rows[idx].norm='(coord. manual)';rows[idx].status='ok';}}else dirty(idx);}});
   renderT();
   for(let i=si;i<Math.min(si+lines.length,rows.length);i++)if(rows[i].addr&&rows[i].status==='idle')geoRow(i);
 }
@@ -472,7 +504,8 @@ function readCSV(file){
       const parts=lines[i].split(sep);
       const code=(parts[0]||'').trim().replace(/^"|"$/g,'');
       const addr=(parts[1]||'').trim().replace(/^"|"$/g,'');
-      if(addr) imported.push([code,addr]);
+      const manualCoords=(parts[2]||'').trim().replace(/^"|"$/g,'');
+      if(addr) imported.push([code,addr,manualCoords]);
     }
     loadImported(imported, file.name);
   };
@@ -505,7 +538,8 @@ function parseXLSX(file){
       for(let i=startIdx;i<data.length;i++){
         const code=String(data[i][0]||'').trim();
         const addr=String(data[i][1]||'').trim();
-        if(addr) imported.push([code,addr]);
+        const manualCoords=String(data[i][2]||'').trim();
+      if(addr) imported.push([code,addr,manualCoords]);
       }
       loadImported(imported, file.name);
     }catch(err){
@@ -518,7 +552,7 @@ function parseXLSX(file){
 function loadImported(data, filename){
   if(!data.length){log('✘ No se encontraron filas válidas en el archivo.','err');return;}
   clearT();
-  data.forEach(([c,a])=>addRow(c,a));
+  data.forEach(([c,a,mc=''])=>addRow(c,a,mc||''));
   log(`✔ Importados ${data.length} destinos desde "${filename}"`, 'ok');
   validateAll();
 }
@@ -546,7 +580,10 @@ function validateAll(){
       issues.push({type:'warn',icon:'⚠️',msg:`Fila ${n}: dirección muy corta ("${row.addr}"). Puede generar geocodificación imprecisa.`,row:n});
     }
     // Address missing city/country context
-    if(!/chile/i.test(row.addr)){
+    if(row.manualCoords && !isValidCoord(row.manualCoords)){
+      issues.push({type:'err',icon:'📍',msg:`Fila ${n}: coordenada manual con formato inválido ("${row.manualCoords}"). Usa "lat, lng" ej: -33.4567, -70.6483.`,row:n});
+    }
+    if(!row.manualCoords && !/chile/i.test(row.addr)){
       issues.push({type:'warn',icon:'📍',msg:`Fila ${n}: la dirección no incluye el país. Agrega ", Chile" al final para mayor precisión en la geocodificación.`,row:n});
     }
     // Duplicate codes
