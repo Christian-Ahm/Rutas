@@ -546,8 +546,8 @@ function validateAll(){
       issues.push({type:'warn',icon:'⚠️',msg:`Fila ${n}: dirección muy corta ("${row.addr}"). Puede generar geocodificación imprecisa.`,row:n});
     }
     // Address missing city/country context
-    if(!/chile|santiago|region|rm|valparaíso|biobío|antofagasta|temuco/i.test(row.addr)){
-      issues.push({type:'warn',icon:'📍',msg:`Fila ${n}: la dirección no incluye ciudad o país. Agrega ", Santiago, Chile" para mayor precisión.`,row:n});
+    if(!/chile/i.test(row.addr)){
+      issues.push({type:'warn',icon:'📍',msg:`Fila ${n}: la dirección no incluye el país. Agrega ", Chile" al final para mayor precisión en la geocodificación.`,row:n});
     }
     // Duplicate codes
     if(row.code.trim()){
