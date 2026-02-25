@@ -87,8 +87,15 @@ td.del{width:44px;text-align:center}
 .rs{display:none}
 .rs.on{display:flex;flex-direction:column;gap:16px}
 .rl{display:flex;flex-direction:column}
-.stop{display:flex;align-items:center;gap:13px;padding:11px 20px;border-bottom:1px solid var(--border);animation:fu .25s ease forwards;opacity:0;transform:translateY(5px)}
+.stop{display:flex;align-items:center;gap:13px;padding:11px 20px;border-bottom:1px solid var(--border);animation:fu .25s ease forwards;opacity:0;transform:translateY(5px);cursor:default}
 .stop:last-child{border-bottom:none}
+.stop.draggable{cursor:grab}
+.stop.draggable:active{cursor:grabbing}
+.stop.drag-over{border-top:2px solid var(--accent);background:var(--accent-lt)}
+.stop.dragging{opacity:.4;background:var(--surface2)}
+.drag-handle{color:var(--text-dim);font-size:16px;cursor:grab;padding:0 2px;flex-shrink:0;user-select:none;line-height:1}
+.drag-handle:hover{color:var(--accent)}
+.reorder-hint{font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:5px;padding:6px 20px;background:var(--surface2);border-top:1px solid var(--border)}
 @keyframes fu{to{opacity:1;transform:translateY(0)}}
 .sn{width:28px;height:28px;border-radius:var(--r);background:var(--accent-lt);color:var(--accent);font-family:var(--mono);font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .sn.f{background:var(--accent);color:#fff}
@@ -492,24 +499,156 @@ async function optimize(){
   lastGJ=JSON.stringify(gj);pr(100);
   const sum=gj.features[0]?.properties?.summary;
   const distKm=sum?(sum.distance/1000).toFixed(1):pd(ord,coords).toFixed(1),durMin=sum?(sum.duration/60).toFixed(0):'—';
+  // Store route state globally for manual reordering
+  window._routeState = {ord,coords,addrs,codes,rts,mode};
   renderRes(ord,coords,addrs,codes,distKm,durMin,rts,method);
   log(`✔ Ruta lista: ${distKm} km · ${durMin} min`,'ok');
 }
 
 function renderRes(ord,coords,addrs,codes,distKm,durMin,rts,method){
   const el=document.getElementById('stops');el.innerHTML='';
+
+  // Stops that can be dragged: all except first (origin) and last if return
+  const fixedFirst = true;
+  const fixedLast  = rts;
+
   ord.forEach((idx,i)=>{
-    const isF=i===0,isR=rts&&i===ord.length-1;
-    const d=document.createElement('div');d.className='stop';d.style.animationDelay=`${i*35}ms`;
+    const isF=i===0, isR=rts&&i===ord.length-1;
+    const isDraggable = !isF && !isR;
+    const d=document.createElement('div');
+    d.className='stop'+(isDraggable?' draggable':'');
+    d.style.animationDelay=`${i*35}ms`;
+    d.dataset.pos=i; // current position in list
     const nc=isR?'sn rt':isF?'sn f':'sn';
-    d.innerHTML=`<div class="${nc}">${isR?'↩':i+1}</div>${codes[idx]?`<span class="sc">${e(codes[idx])}</span>`:''}<div class="sa">${e(addrs[idx])}</div><div class="sco">${coords[idx]}</div>`;
+    const handle = isDraggable
+      ? `<span class="drag-handle" title="Arrastra para reordenar">⠿</span>`
+      : `<span style="width:20px;flex-shrink:0"></span>`;
+    d.innerHTML=`${handle}<div class="${nc}">${isR?'↩':i+1}</div>${codes[idx]?`<span class="sc">${e(codes[idx])}</span>`:''}<div class="sa">${e(addrs[idx])}</div><div class="sco">${coords[idx]}</div>`;
+
+    if(isDraggable){
+      d.setAttribute('draggable','true');
+      d.addEventListener('dragstart', onDragStart);
+      d.addEventListener('dragover',  onDragOver);
+      d.addEventListener('dragleave', onDragLeave);
+      d.addEventListener('drop',      onDrop);
+      d.addEventListener('dragend',   onDragEnd);
+    } else {
+      // Fixed stops still need dragover/drop so items can be dropped near them
+      if(!isF){
+        d.addEventListener('dragover',  onDragOver);
+        d.addEventListener('dragleave', onDragLeave);
+        d.addEventListener('drop',      onDrop);
+      }
+    }
     el.appendChild(d);
   });
+
+  // Reorder hint below stops
+  const hint=document.createElement('div');
+  hint.className='reorder-hint';
+  hint.innerHTML='<span>⠿</span> Arrastra las paradas intermedias para ajustar el orden manualmente — la ruta se recalcula al soltar';
+  el.appendChild(hint);
+
   const uniq=new Set(ord.filter((_,i)=>!(rts&&i===ord.length-1))).size;
   document.getElementById('stats').innerHTML=`<div class="sti"><div class="stv">${distKm}</div><div class="stl">km totales</div></div><div class="sti"><div class="stv">${durMin}′</div><div class="stl">tiempo est.</div></div><div class="sti"><div class="stv">${uniq}</div><div class="stl">paradas</div></div><div class="sti"><div class="stv">${method}</div><div class="stl">algoritmo</div></div>`;
   document.getElementById('btnGJ').href='https://geojson.io/#data=data:application/json,'+encodeURIComponent(lastGJ);
   document.getElementById('rs').classList.add('on');
   document.getElementById('rs').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── STOP DRAG & DROP REORDER ─────────────────────────────────
+let dragSrcEl = null;
+
+function onDragStart(e){
+  dragSrcEl = this;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', this.dataset.pos);
+}
+
+function onDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  // Only highlight if not the source and not fixed origin
+  if(this !== dragSrcEl && !this.classList.contains('sn-fixed')){
+    document.querySelectorAll('#stops .stop').forEach(s=>s.classList.remove('drag-over'));
+    this.classList.add('drag-over');
+  }
+  return false;
+}
+
+function onDragLeave(){
+  this.classList.remove('drag-over');
+}
+
+function onDrop(e){
+  e.stopPropagation();e.preventDefault();
+  document.querySelectorAll('#stops .stop').forEach(s=>s.classList.remove('drag-over'));
+  if(!dragSrcEl || dragSrcEl===this) return;
+
+  const rs = window._routeState;
+  if(!rs) return;
+
+  // Build current ordered array from DOM positions
+  const stopEls = [...document.querySelectorAll('#stops .stop:not(.reorder-hint)')];
+  const currentOrd = stopEls.map(el=>rs.ord[parseInt(el.dataset.pos)]);
+
+  const fromPos = parseInt(dragSrcEl.dataset.pos);
+  const toPos   = parseInt(this.dataset.pos);
+
+  // Don't allow dropping onto origin (pos 0) or return (last)
+  if(toPos === 0) return;
+  if(rs.rts && toPos === rs.ord.length-1) return;
+
+  // Reorder: move fromPos element to toPos
+  const newOrd = currentOrd.slice();
+  const [moved] = newOrd.splice(
+    newOrd.indexOf(rs.ord[fromPos]), 1
+  );
+  // Insert before the target position (accounting for fixed first/last)
+  const targetVal = rs.ord[toPos];
+  const targetIdx = newOrd.indexOf(targetVal);
+  newOrd.splice(targetIdx, 0, moved);
+
+  window._routeState.ord = newOrd;
+  recalcManualRoute(newOrd);
+  return false;
+}
+
+function onDragEnd(){
+  document.querySelectorAll('#stops .stop').forEach(s=>{
+    s.classList.remove('dragging','drag-over');
+  });
+  dragSrcEl = null;
+}
+
+async function recalcManualRoute(newOrd){
+  const rs = window._routeState;
+  if(!rs) return;
+  log('Recalculando ruta con orden manual…','warn');
+
+  const oo = rs.rts ? newOrd.slice(0,-1) : newOrd;
+  const oc = oo.map(i=>{const[la,lo]=rs.coords[i].split(',').map(Number);return[lo,la];});
+  if(rs.rts){const[la,lo]=rs.coords[newOrd[0]].split(',').map(Number);oc.push([lo,la]);}
+
+  let gj;
+  try{gj=await orsRoute(oc,rs.mode);}
+  catch(err){log(`✘ Error ORS: ${err.message}`,'err');return;}
+
+  gj.features=gj.features||[];
+  oo.forEach((si,i)=>{
+    const[la,lo]=rs.coords[si].split(',').map(Number);
+    gj.features.push({type:'Feature',properties:{'marker-color':i===0?'#1a56db':'#0891b2','marker-size':i===0?'large':'small','title':`${i+1}. ${rs.codes[si]||''} — ${rs.addrs[si]}`},geometry:{type:'Point',coordinates:[lo,la]}});
+  });
+  lastGJ=JSON.stringify(gj);
+
+  const sum=gj.features[0]?.properties?.summary;
+  const distKm=sum?(sum.distance/1000).toFixed(1):pd(newOrd,rs.coords).toFixed(1);
+  const durMin=sum?(sum.duration/60).toFixed(0):'—';
+
+  renderRes(newOrd,rs.coords,rs.addrs,rs.codes,distKm,durMin,rs.rts,'Manual');
+  window._routeState.ord = newOrd;
+  log(`✔ Ruta manual: ${distKm} km · ${durMin} min`,'ok');
 }
 
 async function copyGJ(){if(!lastGJ)return;await navigator.clipboard.writeText(lastGJ);log('✔ GeoJSON copiado.','ok');}
