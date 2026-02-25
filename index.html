@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RutaOpt</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f7;--surface:#fff;--surface2:#f4f7fb;--border:#d0d9e8;--border2:#b8c6de;--accent:#1a56db;--accent-h:#1446b8;--accent-lt:#dbeafe;--accent2:#0891b2;--success:#059669;--warn:#d97706;--danger:#dc2626;--text:#1e293b;--text-mid:#475569;--text-dim:#94a3b8;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--r:6px;--sh:0 1px 3px rgba(30,41,59,.08)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:56px;box-shadow:var(--sh);position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:30px;height:30px;background:var(--accent);border-radius:var(--r);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
+.brand-name{font-weight:700;font-size:16px;letter-spacing:-.3px}
+.brand-name span{color:var(--accent)}
+.clock{font-family:var(--mono);font-size:12px;color:var(--text-dim)}
+.main{max-width:1160px;margin:0 auto;padding:24px 24px 80px;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh)}
+.card-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:var(--r) var(--r) 0 0}
+.card-title{font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+.card-title .ic{width:22px;height:22px;background:var(--accent-lt);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.card-body{padding:18px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+label{font-size:12px;font-weight:500;color:var(--text-mid)}
+input[type=text],select{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 12px;outline:none;transition:border-color .15s,box-shadow .15s}
+input[type=text]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,86,219,.12)}
+select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.btn{font-family:var(--sans);font-size:13px;font-weight:500;padding:8px 16px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none;white-space:nowrap}
+.btn-p{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-p:hover:not(:disabled){background:var(--accent-h);border-color:var(--accent-h)}
+.btn-p:disabled{opacity:.4;cursor:not-allowed}
+.btn-s{background:var(--surface);color:var(--text-mid);border-color:var(--border)}
+.btn-s:hover{border-color:var(--border2);color:var(--text);background:var(--surface2)}
+.btn-g{background:none;color:var(--text-dim);border-color:transparent;padding:5px 9px}
+.btn-g:hover{color:var(--danger);background:#fee2e2}
+.btn-t{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.btn-t:hover:not(:disabled){background:#0770a0}
+.btn-t:disabled{opacity:.4;cursor:not-allowed}
+.btn-sm{padding:5px 11px;font-size:12px}
+.ar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--surface2);font-size:11px;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.6px;padding:9px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+tbody td{padding:0;vertical-align:middle}
+td.num{padding:0 0 0 14px;font-family:var(--mono);font-size:11px;color:var(--text-dim);width:36px}
+td input.ci{width:100%;border:none;border-radius:0;background:transparent;padding:9px 14px;font-size:13px;color:var(--text);outline:none;font-family:var(--sans)}
+td input.ci:focus{background:#eff6ff;box-shadow:inset 0 0 0 2px var(--accent)}
+.nc{font-size:12px;color:var(--text-mid);padding:9px 14px;min-width:200px;font-style:italic}
+.nc.ok{color:var(--success);font-style:normal}
+.nc.err{color:var(--danger);font-style:normal}
+.nc.ld{color:var(--text-dim);animation:blink 1s infinite}
+.cc{font-family:var(--mono);font-size:11px;color:var(--text-dim);padding:9px 14px;min-width:155px;white-space:nowrap}
+.cc.ok{color:var(--accent2)}
+.cc.err{color:var(--danger)}
+td.del{width:44px;text-align:center}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle;background:var(--border2)}
+.dot.ok{background:var(--success)}
+.dot.err{background:var(--danger)}
+.dot.sp{background:var(--accent);animation:blink .8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.pw{height:3px;background:var(--border);border-radius:99px;overflow:hidden;display:none}
+.pw.on{display:block}
+.pf{height:100%;background:var(--accent);width:0%;transition:width .3s ease;border-radius:99px}
+.log{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-family:var(--mono);font-size:11.5px;line-height:1.9;max-height:150px;overflow-y:auto;display:none}
+.log.on{display:block}
+.ll{display:flex;gap:12px}
+.lt{color:var(--text-dim);flex-shrink:0}
+.lm{color:var(--text-mid)}
+.lm.ok{color:var(--success)}
+.lm.warn{color:var(--warn)}
+.lm.err{color:var(--danger)}
+.ct{width:100%;border-collapse:collapse}
+.ct th{background:var(--surface2);font-size:11px;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.6px;padding:9px 16px;text-align:left;border-bottom:1px solid var(--border)}
+.ct td{padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.ct tr:last-child td{border-bottom:none}
+.ct tr.best td{background:#f0fdf4;font-weight:600}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500}
+.bb{background:var(--accent-lt);color:var(--accent)}
+.bg{background:#d1fae5;color:var(--success)}
+.bx{background:var(--surface2);color:var(--text-dim);border:1px solid var(--border)}
+.ph{text-align:center;color:var(--text-dim);font-size:13px;padding:32px 20px}
+.rs{display:none}
+.rs.on{display:flex;flex-direction:column;gap:16px}
+.rl{display:flex;flex-direction:column}
+.stop{display:flex;align-items:center;gap:13px;padding:11px 20px;border-bottom:1px solid var(--border);animation:fu .25s ease forwards;opacity:0;transform:translateY(5px)}
+.stop:last-child{border-bottom:none}
+@keyframes fu{to{opacity:1;transform:translateY(0)}}
+.sn{width:28px;height:28px;border-radius:var(--r);background:var(--accent-lt);color:var(--accent);font-family:var(--mono);font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sn.f{background:var(--accent);color:#fff}
+.sn.rt{background:#d1fae5;color:var(--success)}
+.sc{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--accent);background:var(--accent-lt);padding:2px 7px;border-radius:4px;flex-shrink:0}
+.sa{flex:1;font-size:13px}
+.sco{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.str{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.sti{flex:1;padding:16px 20px;border-right:1px solid var(--border);background:var(--surface)}
+.sti:last-child{border-right:none}
+.stv{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--accent);line-height:1;margin-bottom:4px}
+.stl{font-size:11px;font-weight:500;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.hint{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px;margin-top:8px}
+.hint strong{color:var(--accent)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surface2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+@media(max-width:720px){.two-col,.cfg-grid{grid-template-columns:1fr}.topbar{padding:0 16px}.main{padding:14px 12px 60px}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">⬡</div>
+    <span class="brand-name">Ruta<span>Opt</span></span>
+  </div>
+  <span class="clock" id="clock">--:--:--</span>
+</div>
+<div class="main">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><span class="ic">🔑</span>Conexión API</span>
+        <button class="btn btn-s btn-sm" onclick="testKey()">Verificar</button>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label>OpenRouteService API Key</label>
+          <input type="text" id="apiKey" placeholder="eyJvcmciOiI1YjNjZTM1OT...">
+        </div>
+        <div style="margin-top:9px;font-size:12px;color:var(--text-dim)">Key gratuita en <a href="https://openrouteservice.org/sign-up" target="_blank" style="color:var(--accent)">openrouteservice.org</a></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title"><span class="ic">⚙</span>Parámetros de ruta</span></div>
+      <div class="card-body">
+        <div class="cfg-grid">
+          <div class="field"><label>Transporte</label>
+            <select id="mode">
+              <option value="driving-car">🚗 Automóvil</option>
+              <option value="driving-hgv">🚛 Camión HGV</option>
+              <option value="cycling-regular">🚲 Bicicleta</option>
+              <option value="foot-walking">🚶 A pie</option>
+            </select>
+          </div>
+          <div class="field"><label>Retorno</label>
+            <select id="rts"><option value="false">Sin retorno</option><option value="true">Volver al inicio</option></select>
+          </div>
+          <div class="field"><label>Algoritmo</label>
+            <select id="method">
+              <option value="SA">Simulated Annealing</option>
+              <option value="NNOPT">NN + 2-Opt</option>
+              <option value="NN">Nearest Neighbor</option>
+              <option value="NAIVE">Naïve</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="ic">📍</span>Tabla de destinos</span>
+      <div class="ar">
+        <span style="font-size:12px;color:var(--text-dim)" id="rowCount">0 destinos</span>
+        <button class="btn btn-s btn-sm" onclick="addRow()">+ Fila</button>
+        <button class="btn btn-s btn-sm" onclick="loadEx()">Ejemplo</button>
+        <button class="btn btn-s btn-sm" onclick="clearT()">Limpiar</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>#</th><th style="min-width:120px">Cód. destino</th>
+          <th style="min-width:280px">Dirección</th>
+          <th style="min-width:220px">Dirección normalizada</th>
+          <th style="min-width:155px">Coordenadas</th><th></th>
+        </tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <div style="padding:10px 18px 14px;border-top:1px solid var(--border)">
+      <div class="hint">💡 Pega desde Excel con <strong>Ctrl+V</strong> (Código &lt;Tab&gt; Dirección). Geocodificación automática al salir del campo dirección.</div>
+    </div>
+  </div>
+
+  <div class="pw" id="pw"><div class="pf" id="pf"></div></div>
+  <div class="log" id="logEl"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="ic">📊</span>Comparación de algoritmos</span>
+      <button class="btn btn-s btn-sm" id="btnCmp" onclick="runCmp()" disabled>Calcular comparación</button>
+    </div>
+    <div id="cmpBody"><div class="ph">Geocodifica al menos 2 destinos y presiona <strong>Calcular comparación</strong> para elegir el mejor algoritmo.</div></div>
+  </div>
+
+  <div class="ar">
+    <button class="btn btn-p" id="btnOpt" onclick="optimize()" disabled>▶ Ver ruta optimizada</button>
+    <span style="font-size:12px;color:var(--text-dim)">Usa el algoritmo seleccionado en parámetros</span>
+  </div>
+
+  <div class="rs" id="rs">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><span class="ic">✓</span>Ruta optimizada</span>
+        <div class="ar">
+          <a class="btn btn-t btn-sm" id="btnGJ" href="#" target="_blank">↗ Abrir en geojson.io</a>
+          <button class="btn btn-s btn-sm" onclick="copyGJ()">Copiar GeoJSON</button>
+        </div>
+      </div>
+      <div class="rl" id="stops"></div>
+    </div>
+    <div class="str" id="stats"></div>
+  </div>
+</div>
+
+<script>
+let rows=[],lastGJ=null,rid=0;
+const geo=new Set();
+const gk=()=>document.getElementById('apiKey').value.trim();
+const e=s=>(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const sl=ms=>new Promise(r=>setTimeout(r,ms));
+
+setInterval(()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-CL'),1000);
+
+function log(msg,type=''){
+  const el=document.getElementById('logEl');el.classList.add('on');
+  const t=new Date().toLocaleTimeString('es-CL');
+  const d=document.createElement('div');d.className='ll';
+  d.innerHTML=`<span class="lt">[${t}]</span><span class="lm ${type}">${msg}</span>`;
+  el.appendChild(d);el.scrollTop=el.scrollHeight;
+}
+
+function pr(pct){
+  document.getElementById('pw').classList.add('on');
+  document.getElementById('pf').style.width=pct+'%';
+  if(pct>=100)setTimeout(()=>document.getElementById('pw').classList.remove('on'),700);
+}
+
+function addRow(code='',addr='',norm='',coords='',st=''){
+  rows.push({id:++rid,code,addr,norm,coords,status:coords?'ok':(st||'idle')});renderT();
+}
+function delRow(i){rows.splice(i,1);renderT();chk();}
+function clearT(){
+  rows=[];lastGJ=null;
+  document.getElementById('rs').classList.remove('on');
+  document.getElementById('logEl').classList.remove('on');document.getElementById('logEl').innerHTML='';
+  document.getElementById('cmpBody').innerHTML='<div class="ph">Geocodifica al menos 2 destinos y presiona <strong>Calcular comparación</strong> para elegir el mejor algoritmo.</div>';
+  renderT();
+}
+function dirty(i){rows[i].status='idle';rows[i].coords='';rows[i].norm='';}
+
+function renderT(){
+  const tb=document.getElementById('tb');tb.innerHTML='';
+  rows.forEach((r,i)=>{
+    const dc=r.status==='ok'?'ok':r.status==='error'?'err':'';
+    const dot=r.status==='ok'?'ok':r.status==='error'?'err':r.status==='loading'?'sp':'';
+    const nc=r.status==='ok'?'ok':r.status==='error'?'err':r.status==='loading'?'ld':'';
+    const nt=r.status==='loading'?'Geocodificando…':r.status==='error'?'No encontrada':(r.norm||'—');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="num">${i+1}</td>
+      <td><input class="ci" value="${e(r.code)}" placeholder="COD-001" oninput="rows[${i}].code=this.value" onpaste="hp(event,${i})"></td>
+      <td><input class="ci" value="${e(r.addr)}" placeholder="Av. Providencia 1234, Santiago" oninput="rows[${i}].addr=this.value;dirty(${i})" onblur="geoRow(${i})" onpaste="hp(event,${i})"></td>
+      <td class="nc ${nc}">${nt}</td>
+      <td class="cc ${dc}"><span class="dot ${dot}"></span>${r.coords||'—'}</td>
+      <td class="del"><button class="btn btn-g btn-sm" onclick="delRow(${i})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('rowCount').textContent=`${rows.length} destino${rows.length!==1?'s':''}`;
+  chk();
+}
+
+function chk(){
+  const ok=rows.filter(r=>r.status==='ok').length>=2;
+  document.getElementById('btnOpt').disabled=!ok;
+  document.getElementById('btnCmp').disabled=!ok;
+}
+
+function hp(ev,si){
+  const txt=(ev.clipboardData||window.clipboardData).getData('text');
+  const lines=txt.trim().split('\n');if(lines.length<=1)return;
+  ev.preventDefault();
+  lines.forEach((ln,i)=>{const p=ln.split('\t');const idx=si+i;if(idx>=rows.length)addRow(p[0]?.trim()||'',p[1]?.trim()||'');else{rows[idx].code=p[0]?.trim()||rows[idx].code;rows[idx].addr=p[1]?.trim()||rows[idx].addr;dirty(idx);}});
+  renderT();
+  for(let i=si;i<Math.min(si+lines.length,rows.length);i++)if(rows[i].addr&&rows[i].status==='idle')geoRow(i);
+}
+
+async function testKey(){
+  const k=gk();if(!k){log('⚠ Ingresa una API Key primero.','err');return;}
+  log('Verificando…','warn');
+  try{const r=await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${k}&text=Santiago+Chile&size=1`);r.ok?log('✔ API Key válida.','ok'):log(`✘ Inválida (${r.status}).`,'err');}
+  catch(err){log(`✘ Error: ${err.message}`,'err');}
+}
+
+async function geocodeAddr(addr){
+  const k=gk();if(!k)throw new Error('Sin API Key');
+  const r=await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${encodeURIComponent(k)}&text=${encodeURIComponent(addr)}&size=1`);
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const d=await r.json();if(!d.features?.length)throw new Error('Sin resultados');
+  const[lng,lat]=d.features[0].geometry.coordinates;
+  return{lat,lng,label:d.features[0].properties.label};
+}
+
+async function geoRow(idx){
+  const row=rows[idx];if(!row||!row.addr.trim()||row.status==='ok'||row.status==='loading')return;
+  if(geo.has(idx))return;geo.add(idx);
+  row.status='loading';renderT();
+  try{const res=await geocodeAddr(row.addr);row.coords=`${res.lat.toFixed(6)}, ${res.lng.toFixed(6)}`;row.norm=res.label;row.status='ok';log(`✔ ${row.code||'Fila '+(idx+1)}: ${res.label}`,'ok');}
+  catch(err){row.status='error';log(`✘ ${row.code||'Fila '+(idx+1)}: ${err.message}`,'err');}
+  geo.delete(idx);renderT();
+}
+
+function hav(c1,c2){const[a,b]=c1.split(',').map(Number),[c,d]=c2.split(',').map(Number);const R=6371,dl=(c-a)*Math.PI/180,dg=(d-b)*Math.PI/180;const x=Math.sin(dl/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dg/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function pd(path,coords){let d=0;for(let i=1;i<path.length;i++)d+=hav(coords[path[i-1]],coords[path[i]]);return d;}
+function nnP(coords,rts){const n=coords.length,v=new Array(n).fill(false),p=[0];v[0]=true;for(let s=1;s<n;s++){const l=p[p.length-1];let b=-1,bd=Infinity;for(let j=0;j<n;j++)if(!v[j]){const d=hav(coords[l],coords[j]);if(d<bd){bd=d;b=j;}}p.push(b);v[b]=true;}if(rts)p.push(0);return p;}
+function twoOpt(path,coords){let best=path.slice(),imp=true;while(imp){imp=false;for(let i=1;i<best.length-2;i++)for(let j=i+1;j<best.length-1;j++){const np=best.slice(0,i).concat(best.slice(i,j+1).reverse()).concat(best.slice(j+1));if(pd(np,coords)<pd(best,coords)){best=np;imp=true;}}}return best;}
+function saP(coords,rts){let p=nnP(coords,rts),cur=pd(p,coords),t=1000;for(let it=0;it<3000;it++){const n=rts?p.length-1:p.length;const i=1+Math.floor(Math.random()*(n-2)),j=1+Math.floor(Math.random()*(n-2));if(i===j)continue;const np=p.slice();[np[i],np[j]]=[np[j],np[i]];const nd=pd(np,coords);if(nd<cur||Math.random()<Math.exp((cur-nd)/t)){p=np;cur=nd;}t*=0.995;}return p;}
+function*perms(a){if(a.length<=1){yield a;return;}for(let i=0;i<a.length;i++){const r=a.filter((_,k)=>k!==i);for(const p of perms(r))yield[a[i],...p];}}
+function naiveP(coords,rts){if(coords.length>8)return nnP(coords,rts);let best=null,bd=Infinity;const idx=Array.from({length:coords.length},(_,i)=>i);for(const p of perms(idx.slice(1))){const path=[0,...p,...(rts?[0]:[])];const d=pd(path,coords);if(d<bd){bd=d;best=path;}}return best;}
+function calcOrd(coords,method,rts){switch(method){case'NN':return nnP(coords,rts);case'NNOPT':return twoOpt(nnP(coords,rts),coords);case'SA':return saP(coords,rts);default:return naiveP(coords,rts);}}
+
+async function runCmp(){
+  const ready=rows.filter(r=>r.status==='ok');if(ready.length<2)return;
+  const coords=ready.map(r=>r.coords),rts=document.getElementById('rts').value==='true';
+  document.getElementById('cmpBody').innerHTML='<div class="ph">Calculando…</div>';
+  await sl(30);
+  const METHODS=[{k:'NAIVE',n:'Naïve',spd:'Lento (>8 usa NN)'},{k:'NN',n:'Nearest Neighbor',spd:'Rápido'},{k:'NNOPT',n:'NN + 2-Opt',spd:'Rápido'},{k:'SA',n:'Simulated Annealing',spd:'Moderado'}];
+  const results=METHODS.map(m=>{const p=calcOrd(coords,m.k,rts);return{...m,dist:pd(p,coords),path:p};}).sort((a,b)=>a.dist-b.dist);
+  const bd=results[0].dist,sel=document.getElementById('method').value;
+  let ors=null;
+  try{const k=gk();if(k){log('Consultando ORS para ruta real del mejor algoritmo…','warn');const bp=results[0].path,oo=rts?bp.slice(0,-1):bp;const oc=oo.map(i=>{const[la,lo]=coords[i].split(',').map(Number);return[lo,la];});const md=document.getElementById('mode').value;const r=await fetch(`https://api.openrouteservice.org/v2/directions/${md}/geojson`,{method:'POST',headers:{'Authorization':k,'Content-Type':'application/json'},body:JSON.stringify({coordinates:oc,radiuses:oc.map(()=>-1)})});if(r.ok){const gj=await r.json();ors=gj.features[0]?.properties?.summary;}}}catch(err){}
+  let html=`<table class="ct"><thead><tr><th>Algoritmo</th><th>Dist. Haversine</th><th>Diferencia vs mejor</th><th>Velocidad</th><th>Seleccionar</th></tr></thead><tbody>`;
+  results.forEach(r=>{const iB=r.dist===bd,diff=r.dist-bd,pct=bd>0?((diff/bd)*100).toFixed(1):'0.0',iS=r.k===sel;html+=`<tr class="${iB?'best':''}"><td><strong>${r.n}</strong>${iB?' <span class="badge bg">✓ Mejor</span>':''}${iS?' <span class="badge bb">Seleccionado</span>':''}</td><td><strong>${r.dist.toFixed(2)} km</strong></td><td>${iB?'<span style="color:var(--success)">—</span>':`+${diff.toFixed(2)} km <span style="color:var(--text-dim);font-size:11px">(+${pct}%)</span>`}</td><td><span class="badge bx">${r.spd}</span></td><td><button class="btn btn-s btn-sm" onclick="selM('${r.k}')">Usar este</button></td></tr>`;});
+  html+=`</tbody></table>`;
+  if(ors){const km=(ors.distance/1000).toFixed(1),min=(ors.duration/60).toFixed(0);html+=`<div style="padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2);font-size:12px;color:var(--text-mid)">📡 Ruta real por calles (mejor algoritmo, ORS): <strong>${km} km</strong> · <strong>${min} min</strong></div>`;}
+  html+=`<div style="padding:8px 16px 12px;border-top:1px solid var(--border)"><span style="font-size:12px;color:var(--text-dim)">ℹ Haversine = distancia en línea recta. La distancia real por calles puede variar. Haz clic en "Usar este" para aplicar el algoritmo.</span></div>`;
+  document.getElementById('cmpBody').innerHTML=html;
+  log(`✔ Comparación lista. Mejor: ${results[0].n} — ${results[0].dist.toFixed(2)} km`,'ok');
+}
+
+function selM(m){document.getElementById('method').value=m;log(`✔ Algoritmo cambiado a: ${m}`,'ok');}
+
+async function orsRoute(oc,profile){
+  // radiuses:-1 tells ORS to use its maximum snapping radius for each waypoint
+  // This fixes "Could not find routable point" errors in areas with sparse road data
+  const k=gk();
+  // radiuses: -1 means "use maximum snapping radius" — fixes unroutable point errors
+  const body={coordinates:oc, radiuses:oc.map(()=>-1)};
+  const r=await fetch(`https://api.openrouteservice.org/v2/directions/${profile}/geojson`,{method:'POST',headers:{'Authorization':k,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){const err=await r.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${r.status}`);}
+  return r.json();
+}
+
+async function optimize(){
+  const k=gk();if(!k){log('⚠ Ingresa tu API Key primero.','err');return;}
+  const ready=rows.filter(r=>r.status==='ok');if(ready.length<2)return;
+  const method=document.getElementById('method').value,mode=document.getElementById('mode').value,rts=document.getElementById('rts').value==='true';
+  document.getElementById('rs').classList.remove('on');
+  log(`Optimizando con ${method} — ${ready.length} paradas…`,'warn');pr(15);
+  const coords=ready.map(r=>r.coords),addrs=ready.map(r=>r.norm||r.addr),codes=ready.map(r=>r.code);
+  const ord=calcOrd(coords,method,rts);log(`✔ Orden: [${ord.join('→')}]`,'ok');pr(45);
+  const oo=rts?ord.slice(0,-1):ord,oc=oo.map(i=>{const[la,lo]=coords[i].split(',').map(Number);return[lo,la];});
+  log('Trazando ruta real (ORS)…','warn');
+  let gj;try{gj=await orsRoute(oc,mode);}catch(err){log(`✘ Error ORS: ${err.message}`,'err');return;}
+  pr(85);
+  gj.features=gj.features||[];
+  oo.forEach((si,i)=>{const[la,lo]=coords[si].split(',').map(Number);gj.features.push({type:'Feature',properties:{'marker-color':i===0?'#1a56db':'#0891b2','marker-size':i===0?'large':'small','title':`${i+1}. ${codes[si]||''} — ${addrs[si]}`},geometry:{type:'Point',coordinates:[lo,la]}});});
+  lastGJ=JSON.stringify(gj);pr(100);
+  const sum=gj.features[0]?.properties?.summary;
+  const distKm=sum?(sum.distance/1000).toFixed(1):pd(ord,coords).toFixed(1),durMin=sum?(sum.duration/60).toFixed(0):'—';
+  renderRes(ord,coords,addrs,codes,distKm,durMin,rts,method);
+  log(`✔ Ruta lista: ${distKm} km · ${durMin} min`,'ok');
+}
+
+function renderRes(ord,coords,addrs,codes,distKm,durMin,rts,method){
+  const el=document.getElementById('stops');el.innerHTML='';
+  ord.forEach((idx,i)=>{
+    const isF=i===0,isR=rts&&i===ord.length-1;
+    const d=document.createElement('div');d.className='stop';d.style.animationDelay=`${i*35}ms`;
+    const nc=isR?'sn rt':isF?'sn f':'sn';
+    d.innerHTML=`<div class="${nc}">${isR?'↩':i+1}</div>${codes[idx]?`<span class="sc">${e(codes[idx])}</span>`:''}<div class="sa">${e(addrs[idx])}</div><div class="sco">${coords[idx]}</div>`;
+    el.appendChild(d);
+  });
+  const uniq=new Set(ord.filter((_,i)=>!(rts&&i===ord.length-1))).size;
+  document.getElementById('stats').innerHTML=`<div class="sti"><div class="stv">${distKm}</div><div class="stl">km totales</div></div><div class="sti"><div class="stv">${durMin}′</div><div class="stl">tiempo est.</div></div><div class="sti"><div class="stv">${uniq}</div><div class="stl">paradas</div></div><div class="sti"><div class="stv">${method}</div><div class="stl">algoritmo</div></div>`;
+  document.getElementById('btnGJ').href='https://geojson.io/#data=data:application/json,'+encodeURIComponent(lastGJ);
+  document.getElementById('rs').classList.add('on');
+  document.getElementById('rs').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function copyGJ(){if(!lastGJ)return;await navigator.clipboard.writeText(lastGJ);log('✔ GeoJSON copiado.','ok');}
+
+function loadEx(){
+  clearT();
+  [['D-001','Av. Providencia 1234, Santiago, Chile'],['D-002','Av. Apoquindo 4500, Las Condes, Chile'],['D-003','Gran Avenida 9315, La Pintana, Chile'],['D-004','Av. Matta 456, Santiago, Chile'],['D-005','Av. Quilín 5745, Peñalolén, Chile'],['D-006','Av. La Florida 8900, La Florida, Chile']].forEach(([c,a])=>addRow(c,a));
+  log('Ejemplo cargado. Haz clic fuera del campo dirección para geocodificar.','warn');
+}
+
+addRow();addRow();addRow();
+try{const s=sessionStorage.getItem('ors_k');if(s)document.getElementById('apiKey').value=s;}catch(ex){}
+document.getElementById('apiKey').addEventListener('input',ev=>{try{sessionStorage.setItem('ors_k',ev.target.value);}catch(ex){}});
+</script>
+</body>
+</html>
