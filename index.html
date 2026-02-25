@@ -127,13 +127,6 @@ td.del{width:44px;text-align:center}
 td input.ci.has-err{box-shadow:inset 0 0 0 2px var(--danger);background:#fef2f2}
 td input.ci.has-warn{box-shadow:inset 0 0 0 2px var(--warn);background:#fffbeb}
 
-@media print{
-  body *{visibility:hidden!important}
-  #manifestModal,#manifestModal *{visibility:visible!important}
-  #manifestModal{position:fixed!important;inset:0!important;background:#fff!important;z-index:99999!important;overflow:auto!important}
-  .mf-no-print{display:none!important}
-  .mf-editable{border:none!important;background:transparent!important;padding:0!important}
-}
 /* Manifest modal */
 #manifestModal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9000;overflow-y:auto;padding:32px 16px}
 #manifestModal.open{display:flex;justify-content:center;align-items:flex-start}
@@ -703,138 +696,196 @@ function loadEx(){
 let mfFolio = 1;
 
 function openManifest(){
-  const ready = rows.filter(r=>r.status==='ok');
-  if(!ready.length){log('⚠ Genera una ruta optimizada primero.','err');return;}
-
-  // Get optimized order from last rendered stops
   const stopEls = document.querySelectorAll('#stops .stop');
   if(!stopEls.length){log('⚠ Primero genera la ruta optimizada.','err');return;}
 
-  // Rebuild ordered list from rendered stops
   const ordered = [];
   stopEls.forEach(el=>{
-    const codeEl = el.querySelector('.sc');
-    const addrEl = el.querySelector('.sa');
-    const coordEl = el.querySelector('.sco');
     ordered.push({
-      code: codeEl ? codeEl.textContent.trim() : '',
-      addr: addrEl ? addrEl.textContent.trim() : '',
-      coord: coordEl ? coordEl.textContent.trim() : ''
+      code: el.querySelector('.sc')?.textContent.trim()||'',
+      addr: el.querySelector('.sa')?.textContent.trim()||'',
+      coord: el.querySelector('.sco')?.textContent.trim()||''
     });
   });
 
-  const now = new Date();
+  const now   = new Date();
   const fecha = now.toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hora  = now.toLocaleTimeString('es-CL');
-  const folio = 'MAN-' + String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + String(mfFolio++).padStart(3,'0');
+  const folio = 'MAN-'+String(now.getFullYear()).slice(2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(mfFolio++).padStart(3,'0');
 
   let stopsRows = '';
   ordered.forEach((s,i)=>{
     const isFirst = i===0;
-    stopsRows += `<tr>
-      <td style="text-align:center"><span class="mf-order-badge ${isFirst?'first':''}">${i+1}</span></td>
-      <td><strong>${s.code||'—'}</strong></td>
-      <td>${s.addr}</td>
-      <td style="font-family:monospace;font-size:11px">${s.coord}</td>
-      <td><input class="mf-editable" placeholder="Folio GD..." style="width:90px"></td>
-      <td><input class="mf-editable" placeholder="Observaciones..." style="width:140px"></td>
+    const bg = i%2===0 ? '#ffffff' : '#f8fafc';
+    stopsRows += `<tr style="background:${bg}">
+      <td style="text-align:center;padding:8px 6px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:${isFirst?'#059669':'#1a56db'};color:#fff;font-size:11px;font-weight:700">${i+1}</span>
+      </td>
+      <td style="padding:8px 10px;font-weight:700;font-size:12px">${s.code||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px">${s.addr}</td>
+      <td style="padding:8px 10px;font-family:monospace;font-size:10px;color:#475569">${s.coord}</td>
+      <td style="padding:8px 6px"><input type="text" placeholder="GD-XXXX" style="width:85px;border:1px solid #cbd5e1;border-radius:4px;padding:4px 6px;font-size:11px;font-family:Arial,sans-serif"></td>
+      <td style="padding:8px 6px"><input type="text" placeholder="Observaciones..." style="width:100%;border:1px solid #cbd5e1;border-radius:4px;padding:4px 6px;font-size:11px;font-family:Arial,sans-serif"></td>
     </tr>`;
   });
 
-  document.getElementById('mfBody').innerHTML = `
-    <div class="mf-logo-row">
-      <div>
-        <div class="mf-company"><input class="mf-editable" id="mfEmpresa" placeholder="Nombre de la empresa" style="font-size:20px;font-weight:800;color:#1a56db;width:280px"></div>
-        <div style="font-size:11px;color:#64748b;margin-top:4px">Manifiesto de ruta de distribución</div>
-      </div>
-      <div class="mf-doc-info">
-        <strong>MANIFIESTO DE RUTA</strong>
-        <div>Folio: <strong>${folio}</strong></div>
-        <div>${fecha}</div>
-        <div>Emitido: ${hora}</div>
-      </div>
-    </div>
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Manifiesto ${folio}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;font-size:13px;color:#1e293b;background:#fff;padding:28px 32px}
+  .toolbar{display:flex;gap:10px;justify-content:flex-end;margin-bottom:20px}
+  .btn{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600}
+  .btn-print{background:#1a56db;color:#fff}
+  .btn-close{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #1a56db;margin-bottom:20px}
+  .company-name{font-size:22px;font-weight:800;color:#1a56db;letter-spacing:-.5px}
+  .company-sub{font-size:11px;color:#64748b;margin-top:3px}
+  .doc-info{text-align:right;font-size:12px;color:#475569;line-height:1.7}
+  .doc-info .doc-title{font-size:16px;font-weight:800;color:#0f172a;display:block;margin-bottom:2px}
+  .section{margin-bottom:18px}
+  .section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:10px}
+  .field-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 20px}
+  .field label{font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px}
+  .field input{width:100%;border:1px solid #cbd5e1;border-radius:4px;padding:6px 8px;font-size:13px;font-family:Arial,sans-serif;color:#0f172a}
+  .field input:focus{outline:none;border-color:#1a56db}
+  table.stops{width:100%;border-collapse:collapse;font-size:12px}
+  table.stops th{background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  table.stops td{border-bottom:1px solid #e2e8f0;vertical-align:middle}
+  .disclaimer{background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:10px 14px;font-size:11px;color:#475569;line-height:1.6;margin:14px 0}
+  .sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:24px;padding-top:18px;border-top:2px solid #1e293b}
+  .sign-box .sign-role{font-size:11px;font-weight:700;color:#0f172a;margin-bottom:4px}
+  .sign-box .sign-desc{font-size:11px;color:#64748b;margin-bottom:36px;line-height:1.4}
+  .sign-line{height:1px;background:#0f172a;margin-bottom:6px}
+  .sign-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;text-align:center}
+  .sign-fields{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+  .sign-field{font-size:11px;color:#475569}
+  .sign-field input{border:none;border-bottom:1px solid #94a3b8;font-size:12px;font-family:Arial,sans-serif;width:200px;padding:2px 0;outline:none;color:#0f172a}
+  .footer{margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
+  @media print{
+    .toolbar{display:none!important}
+    body{padding:15px 20px}
+    .field input,.sign-field input{border-color:#999}
+    table.stops td input{border-color:#999}
+  }
+  @page{margin:15mm;size:A4}
+</style>
+</head>
+<body>
 
-    <div class="mf-section">
-      <div class="mf-section-title">Datos del transporte</div>
-      <div class="mf-grid">
-        <div class="mf-field">
-          <label>Nombre transportista</label>
-          <input class="mf-editable" id="mfNombre" placeholder="Nombre completo">
-        </div>
-        <div class="mf-field">
-          <label>RUT</label>
-          <input class="mf-editable" id="mfRut" placeholder="12.345.678-9">
-        </div>
-        <div class="mf-field">
-          <label>Patente vehículo</label>
-          <input class="mf-editable" id="mfPatente" placeholder="ABCD-12">
-        </div>
-      </div>
-    </div>
+<div class="toolbar">
+  <button class="btn btn-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+  <button class="btn btn-close" onclick="window.close()">✕ Cerrar</button>
+</div>
 
-    <div class="mf-section">
-      <div class="mf-section-title">Detalle de paradas (${ordered.length} destinos)</div>
-      <table class="mf-table">
-        <thead>
-          <tr>
-            <th style="width:36px">N°</th>
-            <th style="width:90px">Código</th>
-            <th>Dirección</th>
-            <th style="width:130px">Coordenadas</th>
-            <th style="width:95px">Folio GD</th>
-            <th style="width:150px">Observaciones</th>
-          </tr>
-        </thead>
-        <tbody>${stopsRows}</tbody>
-      </table>
-    </div>
+<div class="header">
+  <div>
+    <div class="company-name"><input type="text" id="empresa" placeholder="Nombre de la empresa" style="font-size:22px;font-weight:800;color:#1a56db;border:1px dashed #93c5fd;border-radius:4px;padding:2px 8px;width:300px;font-family:Arial"></div>
+    <div class="company-sub">Manifiesto de ruta de distribución</div>
+  </div>
+  <div class="doc-info">
+    <span class="doc-title">MANIFIESTO DE RUTA</span>
+    <div>Folio: <strong>${folio}</strong></div>
+    <div>${fecha}</div>
+    <div>Hora emisión: ${hora}</div>
+    <div>Total paradas: <strong>${ordered.length}</strong></div>
+  </div>
+</div>
 
-    <div class="mf-disclaimer">
-      <strong>Instrucciones:</strong> El transportista debe completar los campos de observación en caso de no poder realizar la entrega en algún destino, indicando el motivo. La ruta debe seguirse en el orden especificado salvo instrucción expresa del coordinador.
-    </div>
+<div class="section">
+  <div class="section-title">Datos del transporte</div>
+  <div class="field-grid">
+    <div class="field"><label>Nombre transportista</label><input type="text" id="nombre" placeholder="Nombre completo"></div>
+    <div class="field"><label>RUT</label><input type="text" id="rut" placeholder="12.345.678-9"></div>
+    <div class="field"><label>Patente vehículo</label><input type="text" id="patente" placeholder="ABCD-12"></div>
+  </div>
+</div>
 
-    <div class="mf-sign-section">
-      <div class="mf-sign-box">
-        <div style="font-size:11px;font-weight:600;color:#0f172a">TRANSPORTISTA</div>
-        <div style="font-size:11px;color:#475569">Declaro haber recibido las instrucciones de ruta y me comprometo a cumplirla en el orden indicado.</div>
-        <div class="mf-sign-line"></div>
-        <div class="mf-sign-label">Firma y timbre</div>
-        <div class="mf-sign-name" id="mfFirmaNombre">Nombre: ___________________________</div>
-        <div class="mf-sign-name">RUT: ___________________________</div>
-        <div class="mf-sign-name">Fecha: ${now.toLocaleDateString('es-CL')}</div>
-      </div>
-      <div class="mf-sign-box">
-        <div style="font-size:11px;font-weight:600;color:#0f172a">COORDINADOR / EMISOR</div>
-        <div style="font-size:11px;color:#475569">Confirmo que la ruta fue generada y verificada correctamente en el sistema RutaOpt.</div>
-        <div class="mf-sign-line"></div>
-        <div class="mf-sign-label">Firma y timbre</div>
-        <div class="mf-sign-name"><input class="mf-editable" placeholder="Nombre coordinador" style="width:200px;text-align:center"></div>
-        <div class="mf-sign-name" style="margin-top:4px">Fecha: ${now.toLocaleDateString('es-CL')}</div>
-      </div>
-    </div>
+<div class="section">
+  <div class="section-title">Detalle de paradas — ${ordered.length} destinos en orden optimizado</div>
+  <table class="stops">
+    <thead>
+      <tr>
+        <th style="width:36px">N°</th>
+        <th style="width:90px">Código</th>
+        <th>Dirección</th>
+        <th style="width:130px">Coordenadas</th>
+        <th style="width:95px">Folio GD</th>
+        <th>Observaciones</th>
+      </tr>
+    </thead>
+    <tbody>${stopsRows}</tbody>
+  </table>
+</div>
 
-    <div class="mf-footer">
-      <span>Generado por RutaOpt · ${now.toLocaleString('es-CL')}</span>
-      <span>Folio: ${folio}</span>
-    </div>
-  `;
+<div class="disclaimer">
+  <strong>Instrucciones:</strong> El transportista debe seguir la ruta en el orden indicado. En caso de no poder realizar una entrega, debe completar el campo de observaciones indicando el motivo. Cualquier modificación al orden de la ruta debe ser autorizada expresamente por el coordinador emisor.
+</div>
 
-  document.getElementById('manifestModal').classList.add('open');
+<div class="sign-grid">
+  <div class="sign-box">
+    <div class="sign-role">TRANSPORTISTA</div>
+    <div class="sign-desc">Declaro haber recibido las instrucciones de ruta y me comprometo a cumplirla en el orden indicado.</div>
+    <div class="sign-line"></div>
+    <div class="sign-label">Firma y timbre</div>
+    <div class="sign-fields">
+      <div class="sign-field">Nombre: <input type="text" id="sNombre" placeholder="Nombre completo"></div>
+      <div class="sign-field">RUT: <input type="text" id="sRut" placeholder="12.345.678-9"></div>
+      <div class="sign-field">Fecha: ${now.toLocaleDateString('es-CL')}</div>
+    </div>
+  </div>
+  <div class="sign-box">
+    <div class="sign-role">COORDINADOR / EMISOR</div>
+    <div class="sign-desc">Confirmo que la ruta fue generada y verificada correctamente en el sistema RutaOpt.</div>
+    <div class="sign-line"></div>
+    <div class="sign-label">Firma y timbre</div>
+    <div class="sign-fields">
+      <div class="sign-field">Nombre: <input type="text" placeholder="Nombre coordinador"></div>
+      <div class="sign-field">Fecha: ${now.toLocaleDateString('es-CL')}</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Generado por RutaOpt · ${now.toLocaleString('es-CL')}</span>
+  <span>Folio: ${folio} — Este documento tiene validez como respaldo operativo de la ruta asignada.</span>
+</div>
+
+<script>
+  // Auto-sync transport fields from opener if available
+  window.onload = function(){
+    const n = document.getElementById('nombre');
+    const r = document.getElementById('rut');
+    const p = document.getElementById('patente');
+    const sn = document.getElementById('sNombre');
+    const sr = document.getElementById('sRut');
+    // Sync sign fields with header fields
+    n && n.addEventListener('input', ()=>{ if(sn) sn.value = n.value; });
+    r && r.addEventListener('input', ()=>{ if(sr) sr.value = r.value; });
+  };
+<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=960,height=800,scrollbars=yes');
+  if(!win){ log('⚠ El navegador bloqueó la ventana emergente. Permite popups para este sitio.','err'); return; }
+  win.document.write(html);
+  win.document.close();
 }
 
 function closeManifest(){
   document.getElementById('manifestModal').classList.remove('open');
 }
-
 function printManifest(){
   window.print();
 }
-
-// Close modal clicking outside
 document.getElementById('manifestModal').addEventListener('click', function(e){
   if(e.target===this) closeManifest();
 });
+
 
 addRow();addRow();addRow();
 try{const s=sessionStorage.getItem('ors_k');if(s)document.getElementById('apiKey').value=s;}catch(ex){}
