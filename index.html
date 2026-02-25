@@ -107,6 +107,25 @@ td.del{width:44px;text-align:center}
 ::-webkit-scrollbar-track{background:var(--surface2)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
 @media(max-width:720px){.two-col,.cfg-grid{grid-template-columns:1fr}.topbar{padding:0 16px}.main{padding:14px 12px 60px}}
+
+.val-panel{margin:0;border-top:1px solid var(--border);display:none}
+.val-panel.on{display:block}
+.val-header{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:var(--surface2)}
+.val-title{font-size:12px;font-weight:600;display:flex;align-items:center;gap:7px}
+.val-list{padding:0 18px 14px;display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.val-item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:var(--r);font-size:12px}
+.val-item.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.val-item.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.val-item.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.val-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.val-msg{flex:1;line-height:1.5}
+.val-row{font-family:var(--mono);font-size:10px;opacity:.7;margin-top:2px}
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:28px 20px;text-align:center;color:var(--text-dim);font-size:13px;transition:all .2s;cursor:pointer;margin-bottom:0}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-lt);color:var(--accent)}
+.drop-zone .dz-icon{font-size:28px;margin-bottom:8px}
+.drop-zone .dz-hint{font-size:11px;margin-top:6px;color:var(--text-dim)}
+td input.ci.has-err{box-shadow:inset 0 0 0 2px var(--danger);background:#fef2f2}
+td input.ci.has-warn{box-shadow:inset 0 0 0 2px var(--warn);background:#fffbeb}
 </style>
 </head>
 <body>
@@ -165,6 +184,11 @@ td.del{width:44px;text-align:center}
       <span class="card-title"><span class="ic">📍</span>Tabla de destinos</span>
       <div class="ar">
         <span style="font-size:12px;color:var(--text-dim)" id="rowCount">0 destinos</span>
+        <label class="btn btn-s btn-sm" style="cursor:pointer" title="Importar Excel (.xlsx) o CSV">
+          📂 Importar
+          <input type="file" id="fileInput" accept=".xlsx,.csv,.txt" style="display:none" onchange="importFile(this)">
+        </label>
+        <button class="btn btn-s btn-sm" onclick="validateAll()">✓ Validar</button>
         <button class="btn btn-s btn-sm" onclick="addRow()">+ Fila</button>
         <button class="btn btn-s btn-sm" onclick="loadEx()">Ejemplo</button>
         <button class="btn btn-s btn-sm" onclick="clearT()">Limpiar</button>
@@ -182,7 +206,19 @@ td.del{width:44px;text-align:center}
       </table>
     </div>
     <div style="padding:10px 18px 14px;border-top:1px solid var(--border)">
-      <div class="hint">💡 Pega desde Excel con <strong>Ctrl+V</strong> (Código &lt;Tab&gt; Dirección). Geocodificación automática al salir del campo dirección.</div>
+      <div class="hint">💡 Pega con <strong>Ctrl+V</strong> (Código &lt;Tab&gt; Dirección) · Arrastra un archivo aquí · Geocodificación automática al salir del campo.</div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="dzOver(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)" style="margin-top:12px">
+        <div class="dz-icon">📁</div>
+        <div>Arrastra tu archivo aquí o <strong style="color:var(--accent)">haz clic para seleccionar</strong></div>
+        <div class="dz-hint">Formatos soportados: Excel (.xlsx) · CSV (.csv) · Texto (.txt) — Primera columna: Código · Segunda columna: Dirección</div>
+      </div>
+    </div>
+    <div class="val-panel" id="valPanel">
+      <div class="val-header">
+        <span class="val-title" id="valTitle">Validación de datos</span>
+        <button class="btn btn-g btn-sm" onclick="closeVal()">✕</button>
+      </div>
+      <div class="val-list" id="valList"></div>
     </div>
   </div>
 
@@ -331,7 +367,7 @@ async function runCmp(){
   const results=METHODS.map(m=>{const p=calcOrd(coords,m.k,rts);return{...m,dist:pd(p,coords),path:p};}).sort((a,b)=>a.dist-b.dist);
   const bd=results[0].dist,sel=document.getElementById('method').value;
   let ors=null;
-  try{const k=gk();if(k){log('Consultando ORS para ruta real del mejor algoritmo…','warn');const bp=results[0].path,oo=rts?bp.slice(0,-1):bp;const oc=oo.map(i=>{const[la,lo]=coords[i].split(',').map(Number);return[lo,la];});const md=document.getElementById('mode').value;const r=await fetch(`https://api.openrouteservice.org/v2/directions/${md}/geojson`,{method:'POST',headers:{'Authorization':k,'Content-Type':'application/json'},body:JSON.stringify({coordinates:oc,radiuses:oc.map(()=>-1)})});if(r.ok){const gj=await r.json();ors=gj.features[0]?.properties?.summary;}}}catch(err){}
+  try{const k=gk();if(k){log('Consultando ORS para ruta real del mejor algoritmo…','warn');const bp=results[0].path,oo=rts?bp.slice(0,-1):bp;const oc=oo.map(i=>{const[la,lo]=coords[i].split(',').map(Number);return[lo,la];});if(rts){const[la,lo]=coords[bp[0]].split(',').map(Number);oc.push([lo,la]);}const md=document.getElementById('mode').value;const r=await fetch(`https://api.openrouteservice.org/v2/directions/${md}/geojson`,{method:'POST',headers:{'Authorization':k,'Content-Type':'application/json'},body:JSON.stringify({coordinates:oc,radiuses:oc.map(()=>-1)})});if(r.ok){const gj=await r.json();ors=gj.features[0]?.properties?.summary;}}}catch(err){}
   let html=`<table class="ct"><thead><tr><th>Algoritmo</th><th>Dist. Haversine</th><th>Diferencia vs mejor</th><th>Velocidad</th><th>Seleccionar</th></tr></thead><tbody>`;
   results.forEach(r=>{const iB=r.dist===bd,diff=r.dist-bd,pct=bd>0?((diff/bd)*100).toFixed(1):'0.0',iS=r.k===sel;html+=`<tr class="${iB?'best':''}"><td><strong>${r.n}</strong>${iB?' <span class="badge bg">✓ Mejor</span>':''}${iS?' <span class="badge bb">Seleccionado</span>':''}</td><td><strong>${r.dist.toFixed(2)} km</strong></td><td>${iB?'<span style="color:var(--success)">—</span>':`+${diff.toFixed(2)} km <span style="color:var(--text-dim);font-size:11px">(+${pct}%)</span>`}</td><td><span class="badge bx">${r.spd}</span></td><td><button class="btn btn-s btn-sm" onclick="selM('${r.k}')">Usar este</button></td></tr>`;});
   html+=`</tbody></table>`;
@@ -362,7 +398,9 @@ async function optimize(){
   log(`Optimizando con ${method} — ${ready.length} paradas…`,'warn');pr(15);
   const coords=ready.map(r=>r.coords),addrs=ready.map(r=>r.norm||r.addr),codes=ready.map(r=>r.code);
   const ord=calcOrd(coords,method,rts);log(`✔ Orden: [${ord.join('→')}]`,'ok');pr(45);
-  const oo=rts?ord.slice(0,-1):ord,oc=oo.map(i=>{const[la,lo]=coords[i].split(',').map(Number);return[lo,la];});
+  const oo=rts?ord.slice(0,-1):ord;
+  const oc=oo.map(i=>{const[la,lo]=coords[i].split(',').map(Number);return[lo,la];});
+  if(rts){const[la,lo]=coords[ord[0]].split(',').map(Number);oc.push([lo,la]);}
   log('Trazando ruta real (ORS)…','warn');
   let gj;try{gj=await orsRoute(oc,mode);}catch(err){log(`✘ Error ORS: ${err.message}`,'err');return;}
   pr(85);
@@ -392,6 +430,172 @@ function renderRes(ord,coords,addrs,codes,distKm,durMin,rts,method){
 }
 
 async function copyGJ(){if(!lastGJ)return;await navigator.clipboard.writeText(lastGJ);log('✔ GeoJSON copiado.','ok');}
+
+
+// ── DRAG & DROP ──────────────────────────────────────────────
+function dzOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag');}
+function dzLeave(){document.getElementById('dropZone').classList.remove('drag');}
+function dzDrop(e){
+  e.preventDefault();dzLeave();
+  const file=e.dataTransfer.files[0];
+  if(file) processFile(file);
+}
+function importFile(input){
+  const file=input.files[0];
+  if(file) processFile(file);
+  input.value=''; // reset so same file can be re-imported
+}
+
+// ── FILE PROCESSING ──────────────────────────────────────────
+function processFile(file){
+  const name=file.name.toLowerCase();
+  if(name.endsWith('.xlsx')){
+    readXLSX(file);
+  } else if(name.endsWith('.csv')||name.endsWith('.txt')){
+    readCSV(file);
+  } else {
+    log('✘ Formato no soportado. Usa .xlsx, .csv o .txt','err');
+  }
+}
+
+function readCSV(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const text=e.target.result;
+    const lines=text.split(/\r?\n/).filter(l=>l.trim());
+    // detect separator: semicolon or comma
+    const sep=lines[0].includes(';')?';':',';
+    // skip header if first col looks like a label not a code
+    const startIdx=/^(c.?d|código|code|destino|id)/i.test(lines[0].split(sep)[0])?1:0;
+    const imported=[];
+    for(let i=startIdx;i<lines.length;i++){
+      const parts=lines[i].split(sep);
+      const code=(parts[0]||'').trim().replace(/^"|"$/g,'');
+      const addr=(parts[1]||'').trim().replace(/^"|"$/g,'');
+      if(addr) imported.push([code,addr]);
+    }
+    loadImported(imported, file.name);
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+function readXLSX(file){
+  // Load SheetJS dynamically if not present
+  if(typeof XLSX==='undefined'){
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload=()=>parseXLSX(file);
+    script.onerror=()=>log('✘ No se pudo cargar SheetJS. Verifica tu conexión.','err');
+    document.head.appendChild(script);
+  } else {
+    parseXLSX(file);
+  }
+}
+
+function parseXLSX(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      // skip header row if first cell looks like a label
+      const startIdx=/^(c.?d|código|code|destino|id|direc)/i.test(String(data[0]?.[0]||''))?1:0;
+      const imported=[];
+      for(let i=startIdx;i<data.length;i++){
+        const code=String(data[i][0]||'').trim();
+        const addr=String(data[i][1]||'').trim();
+        if(addr) imported.push([code,addr]);
+      }
+      loadImported(imported, file.name);
+    }catch(err){
+      log('✘ Error leyendo Excel: '+err.message,'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function loadImported(data, filename){
+  if(!data.length){log('✘ No se encontraron filas válidas en el archivo.','err');return;}
+  clearT();
+  data.forEach(([c,a])=>addRow(c,a));
+  log(`✔ Importados ${data.length} destinos desde "${filename}"`, 'ok');
+  validateAll();
+}
+
+// ── VALIDATION ───────────────────────────────────────────────
+function validateAll(){
+  const panel=document.getElementById('valPanel');
+  const list=document.getElementById('valList');
+  const title=document.getElementById('valTitle');
+  panel.classList.add('on');
+  list.innerHTML='';
+
+  const issues=[];
+  const seenCodes={}, seenAddrs={};
+
+  rows.forEach((row,i)=>{
+    const n=i+1;
+    // Empty address
+    if(!row.addr.trim()){
+      issues.push({type:'err',icon:'⛔',msg:`Fila ${n}: dirección vacía.`,row:n});
+      return;
+    }
+    // Address too short (less than 8 chars)
+    if(row.addr.trim().length<8){
+      issues.push({type:'warn',icon:'⚠️',msg:`Fila ${n}: dirección muy corta ("${row.addr}"). Puede generar geocodificación imprecisa.`,row:n});
+    }
+    // Address missing city/country context
+    if(!/chile|santiago|region|rm|valparaíso|biobío|antofagasta|temuco/i.test(row.addr)){
+      issues.push({type:'warn',icon:'📍',msg:`Fila ${n}: la dirección no incluye ciudad o país. Agrega ", Santiago, Chile" para mayor precisión.`,row:n});
+    }
+    // Duplicate codes
+    if(row.code.trim()){
+      const k=row.code.trim().toLowerCase();
+      if(seenCodes[k]!==undefined){
+        issues.push({type:'warn',icon:'🔁',msg:`Código duplicado "${row.code}" en filas ${seenCodes[k]+1} y ${n}.`,row:n});
+      } else { seenCodes[k]=i; }
+    }
+    // Duplicate addresses
+    const ak=row.addr.trim().toLowerCase();
+    if(seenAddrs[ak]!==undefined){
+      issues.push({type:'warn',icon:'🔁',msg:`Dirección duplicada en filas ${seenAddrs[ak]+1} y ${n}: "${row.addr}".`,row:n});
+    } else { seenAddrs[ak]=i; }
+    // Geocode error
+    if(row.status==='error'){
+      issues.push({type:'err',icon:'🌐',msg:`Fila ${n}: error de geocodificación para "${row.addr}". Revisa la dirección.`,row:n});
+    }
+  });
+
+  if(!rows.length){
+    list.innerHTML='<div class="val-item warn"><span class="val-icon">ℹ️</span><span class="val-msg">La tabla está vacía. Carga o ingresa destinos primero.</span></div>';
+    title.innerHTML='Validación de datos';
+    return;
+  }
+
+  const errs=issues.filter(i=>i.type==='err').length;
+  const warns=issues.filter(i=>i.type==='warn').length;
+
+  if(!issues.length){
+    list.innerHTML='<div class="val-item ok"><span class="val-icon">✅</span><span class="val-msg">Todos los datos se ven correctos. Sin errores ni advertencias.</span></div>';
+    title.innerHTML=`Validación · <span style="color:var(--success)">Todo OK</span>`;
+  } else {
+    issues.forEach(item=>{
+      const d=document.createElement('div');
+      d.className=`val-item ${item.type}`;
+      d.innerHTML=`<span class="val-icon">${item.icon}</span><span class="val-msg">${item.msg}</span>`;
+      list.appendChild(d);
+    });
+    const parts=[];
+    if(errs) parts.push(`<span style="color:var(--danger)">${errs} error${errs>1?'es':''}</span>`);
+    if(warns) parts.push(`<span style="color:var(--warn)">${warns} advertencia${warns>1?'s':''}</span>`);
+    title.innerHTML=`Validación · ${parts.join(' · ')}`;
+  }
+}
+
+function closeVal(){
+  document.getElementById('valPanel').classList.remove('on');
+}
 
 function loadEx(){
   clearT();
